@@ -15,6 +15,7 @@ from PyQt5.QtCore import QSize, Qt, QThreadPool
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QMainWindow, QListWidgetItem, QMenu, QAction, QMessageBox
 
+import TaskExporter
 import TestFlow
 from ControlWindow import get_task_cell, TaskEntity, TaskCellWrap
 from DataImportDialog import DataImportDialog
@@ -117,9 +118,15 @@ class Ui_MainWindow(QMainWindow):
         self.actionB = QAction("删除")
         self.contextMenu.addAction(self.actionB)
 
+        self.contextMenu.addSeparator()
+
+        self.actionC = QAction("导出")
+        self.contextMenu.addAction(self.actionC)
+
         # 点击menu
         self.actionA.triggered.connect(self.on_menu_edit_task)
         self.actionB.triggered.connect(self.on_menu_rm_task)
+        self.actionC.triggered.connect(self.on_menu_export_task)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -265,6 +272,15 @@ class Ui_MainWindow(QMainWindow):
             return
         self.toolButton_2.setText(fileName)
         print("选择Proxy Tool：" + fileName)
+
+    # 导出任务
+    def on_menu_export_task(self):
+        task = self.task_items[self.f]
+
+        tid = task.tid
+        js = TaskExporter.query_task(tid)
+        data_str = TaskExporter.dump_2_json(js)
+        print(f"导出任务:\n{data_str}")
 
     def on_menu_edit_task(self):
         print("点击右键菜单")

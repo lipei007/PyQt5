@@ -113,7 +113,7 @@ class DataImportDialog(QtWidgets.QDialog):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
+        Dialog.setWindowTitle("导入数据")
         self.pushButton.setText(_translate("Dialog", "打开文件"))
         self.pushButton_2.setText(_translate("Dialog", "格式化日期"))
         self.pushButton_3.setText(_translate("Dialog", "删除选中行"))
