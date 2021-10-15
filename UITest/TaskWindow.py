@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import QMainWindow, QListWidgetItem, QMenu, QAction, QMessa
 
 import TestFlow
 from ControlWindow import get_task_cell, TaskEntity, TaskCellWrap
+from DataImportDialog import DataImportDialog
 from TaskCreateWindow import TaskCreateDialog, TaskCreateEntity, rm_task_flow
 
 # 数据库连接池
@@ -191,6 +192,17 @@ class Ui_MainWindow(QMainWindow):
         self.actionNew_Task_2 = QtWidgets.QAction(MainWindow)
         self.actionNew_Task_2.setObjectName("actionNew_Task_2")
         self.menu.addAction(self.actionNew_Task_2)
+
+        self.menu_import = QMenu(MainWindow)
+        self.menu_import.setTitle("导入")
+
+        self.action_import_data = QtWidgets.QAction(MainWindow)
+        self.action_import_data.setText("数据")
+        self.menu_import.addAction(self.action_import_data)
+
+        self.menu.addSeparator()
+        self.menu.addMenu(self.menu_import)
+
         self.menubar.addAction(self.menu.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -207,6 +219,7 @@ class Ui_MainWindow(QMainWindow):
         self.actionNew_Task_2.setText(_translate("MainWindow", "New Task"))
 
         self.actionNew_Task_2.triggered.connect(self.on_open_new_task)
+        self.action_import_data.triggered.connect(self.on_open_import_data)
 
         self.toolButton.clicked.connect(self.open_chromedriver_file)
         self.toolButton_2.clicked.connect(self.open_proxy_file)
@@ -232,6 +245,9 @@ class Ui_MainWindow(QMainWindow):
         print("点击创建任务")
         dialog = TaskCreateDialog(callback=self.on_create_task)
         dialog.exec_()
+
+    def on_open_import_data(self):
+        DataImportDialog()
 
     def open_chromedriver_file(self):
         fileName, fileType = QtWidgets.QFileDialog.getOpenFileName(self.centralwidget, "选取文件", os.getcwd(),
