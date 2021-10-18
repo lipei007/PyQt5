@@ -15,8 +15,11 @@ from PyQt5.QtCore import QSize, Qt, QThreadPool
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QMainWindow, QListWidgetItem, QMenu, QAction, QMessageBox
 
+import DataEncrypt
 import TaskExporter
+import TaskImporter
 import TestFlow
+
 from ControlWindow import get_task_cell, TaskEntity, TaskCellWrap
 from DataImportDialog import DataImportDialog
 from TaskCreateWindow import TaskCreateDialog, TaskCreateEntity, rm_task_flow
@@ -204,11 +207,17 @@ class Ui_MainWindow(QMainWindow):
         self.menu_import.setTitle("导入")
 
         self.action_import_data = QtWidgets.QAction(MainWindow)
-        self.action_import_data.setText("数据")
+        self.action_import_data.setText("Excel数据")
         self.menu_import.addAction(self.action_import_data)
+
+        self.action_back_import = QtWidgets.QAction(MainWindow)
+        self.menu_import.addSeparator()
+        self.action_back_import.setText("任务")
+        self.menu_import.addAction(self.action_back_import)
 
         self.menu.addSeparator()
         self.menu.addMenu(self.menu_import)
+
 
         self.menubar.addAction(self.menu.menuAction())
 
@@ -227,6 +236,7 @@ class Ui_MainWindow(QMainWindow):
 
         self.actionNew_Task_2.triggered.connect(self.on_open_new_task)
         self.action_import_data.triggered.connect(self.on_open_import_data)
+        self.action_back_import.triggered.connect(self.on_open_import_back)
 
         self.toolButton.clicked.connect(self.open_chromedriver_file)
         self.toolButton_2.clicked.connect(self.open_proxy_file)
@@ -242,6 +252,14 @@ class Ui_MainWindow(QMainWindow):
         #     wrap.start_btn.clicked.connect(self.on_click_start_task)
 
         # self.listWidget.resize(840, 1500)
+        self.load_task_list()
+
+    def load_task_list(self):
+
+        self.ui_wrap_infos.clear()
+        self.task_infos.clear()
+        self.task_items.clear()
+        self.listWidget.clear()
 
         task_arr = query_all_task()
         if task_arr is not None:
@@ -255,6 +273,20 @@ class Ui_MainWindow(QMainWindow):
 
     def on_open_import_data(self):
         DataImportDialog()
+
+    def on_open_import_back(self):
+        fileName, fileType = QtWidgets.QFileDialog.getOpenFileName(self.centralwidget, "选取文件", os.getcwd(),
+                                                                   "All Files(*);;Text Files(*.txt)")
+
+        if len(fileName) == 0:
+            return
+        with open(fileName, 'r') as f:
+            txt = f.read()
+            js_str = DataEncrypt.decrypt(txt)
+            TaskImporter.import_str(js_str)
+            alert_msg(self, '导入成功')
+            self.load_task_list()
+
 
     def open_chromedriver_file(self):
         fileName, fileType = QtWidgets.QFileDialog.getOpenFileName(self.centralwidget, "选取文件", os.getcwd(),
@@ -273,16 +305,35 @@ class Ui_MainWindow(QMainWindow):
         self.toolButton_2.setText(fileName)
         print("选择Proxy Tool：" + fileName)
 
+    def on_export_task_file(self, js_str):
+        if js_str is None:
+            return
+        fileName, fileType = QtWidgets.QFileDialog.getSaveFileName(self.centralwidget, "选取文件", os.getcwd(), "All Files(*);;Text Files(*.txt)")
+        if len(fileName) == 0:
+            return
+
+        rest = DataEncrypt.encrypt(js_str)
+        with open(fileName, 'w') as f:
+            f.write(rest)
+            alert_msg(self, '导出成功')
+
     # 导出任务
     def on_menu_export_task(self):
+        if self.f is None:
+            return
+
         task = self.task_items[self.f]
 
         tid = task.tid
         js = TaskExporter.query_task(tid)
         data_str = TaskExporter.dump_2_json(js)
         print(f"导出任务:\n{data_str}")
+        if data_str is not None:
+            self.on_export_task_file(data_str)
 
     def on_menu_edit_task(self):
+        if self.f is None:
+            return
         print("点击右键菜单")
         # 获取到任务数据
         task = self.task_items[self.f]
@@ -291,6 +342,8 @@ class Ui_MainWindow(QMainWindow):
         dialog.exec_()
 
     def on_menu_rm_task(self):
+        if self.f is None:
+            return
         print("点击删除任务")
 
         # 获取到任务数据
@@ -307,7 +360,10 @@ class Ui_MainWindow(QMainWindow):
         self.listWidget.takeItem(self.f)
 
     def on_check_row(self, index):
+
         self.f = index.row()
+        if self.f is None:
+            return
         print(f"点击了行 {self.f}")
 
     def show_context_menu(self):

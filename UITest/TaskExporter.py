@@ -10,7 +10,11 @@ def query_flow_steps(fid):
     """
     sql = f'select * from t_task_flow_step where flow_id={fid};'
     rests = utils.DataSource.query_sql(sql)
-    return rests
+    tmp_arr = []
+    for step in rests:
+        step['create_time'] = None
+        tmp_arr.append(step)
+    return tmp_arr
 
 
 def query_task_flow(tid):
@@ -27,6 +31,7 @@ def query_task_flow(tid):
         fid = flow['id']
         steps = query_flow_steps(fid)
         flow['steps'] = steps
+        flow['create_time'] = None
         tmp_arr.append(flow)
 
     return tmp_arr
@@ -45,7 +50,9 @@ def query_task(tid):
         task = rests[0]
         flow_arr = query_task_flow(tid)
         task['flows'] = flow_arr
-        return task
+        task['create_time'] = None
+        task['modify_time'] = None
+        return [task]
 
     return None
 
@@ -62,6 +69,8 @@ def query_all_task():
         tid = task['id']
         flow_arr = query_task_flow(tid)
         task['flows'] = flow_arr
+        task['create_time'] = None
+        task['modify_time'] = None
         tmp_arr.append(task)
     return tmp_arr
 

@@ -100,11 +100,13 @@ def rm_task_flow(tid):
     ids = mysql_pool.query(sql)
     id_arr = []
     for dic0 in ids:
-        id_arr.append(dic0['id'])
+        did = dic0['id']
+        id_arr.append(f'{did}')
 
-    fids = ','.join(id_arr)
-    clear_step_sql = f'delete from t_task_flow_step where flow_id in ({fids});'
-    mysql_pool.execute(clear_step_sql)
+    if len(id_arr) > 0:
+        fids = ','.join(id_arr)
+        clear_step_sql = f'delete from t_task_flow_step where flow_id in ({fids});'
+        mysql_pool.execute(clear_step_sql)
 
     sql = f'delete from t_task_flow where task_id={tid};'
     mysql_pool.execute(sql)

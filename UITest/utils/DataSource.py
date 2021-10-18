@@ -15,40 +15,13 @@ def query_all_columns(table):
     return columns
 
 
-# 将数据表插入数据库
-def insert_to_table(rows, table, maps):
-    for row in rows:
-        insert_row(row, table, maps)
-
-
-# 插入数据
-def insert_row(row, table, maps):
-    cols = len(row)
-
-    keys = []
-    values = []
-
-    for j in range(0, cols):
-        value = row[j]
-        key = maps.get(j, None)
-        if key is not None:
-            keys.append(key)
-
-            if value is None:
-                value = ""
-            value = escape_string(value.strip())
-            values.append(f'\'{value}\'')
-
-    if len(keys) > 0:
-        sql = f'insert into {table} ({",".join(keys)}) values ({",".join(values)});'
-        mysql_pool.execute(sql=sql)
-
-
 def execute_sql(sql):
+    print(sql)
     mysql_pool.execute(sql=sql)
 
 
 def query_sql(sql):
+    print(sql)
     return mysql_pool.query(sql)
 
 
