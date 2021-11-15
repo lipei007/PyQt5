@@ -9,10 +9,14 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as Expect
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.chrome.options import Options
 
 import TableFields
 import database.Database
 from database.Database import DataBasePool
+from utils import VMLogin
+from utils.NineOneOne import change_proxy, free_port
+import Config
 
 from PyQt5.QtCore import QRunnable, pyqtSlot, QObject, pyqtSignal, QThreadPool, QTimer
 
@@ -103,7 +107,7 @@ class TaskWorker(QRunnable):
         self.start_task()
 
     def log(self, msg):
-        self.logs.append(msg)
+        self.logs.append(msg + '\n')
         print(msg)
 
     def finished(self):
@@ -166,13 +170,90 @@ class TaskWorker(QRunnable):
         sql = f'update t_task set do_num=do_num+1 where id={self.tid};'
         mysql_pool.execute(sql)
 
+        # 设置代理启动浏览器
+        country = self.data.get('country')
+        state = self.data.get('state')
+        city = self.data.get('city')
 
-        # 开始执行
-        driver = webdriver.Chrome()
-        driver.get(self.url)
+        result, driver = self.start_browser(0, Config.Proxy_API, Config.VM_Token, self.profile_id, country=country,
+                                            state=state,
+                                            city=city, platform='Windows', langHdr='en-US',
+                                            accept_language='en-US,en;q=0.9', host=self.proxy_host,
+                                            port=self.proxy_port, url=self.url)
 
-        time.sleep(10)
-        self.do_steps(self.tid, self.main_steps, driver)
+        if result == 1 and driver is not None:  # 启动浏览器无异常
+            time.sleep(10)
+            self.do_steps(self.tid, self.main_steps, driver)
+        elif result == 3:
+            self.update_task_record_status(2)
+            self.register_next()
+
+        # # 开始执行
+        # driver = webdriver.Chrome()
+        # driver.get(self.url)
+        #
+        # time.sleep(10)
+        # self.do_steps(self.tid, self.main_steps, driver)
+
+    # 释放端口并退出浏览器
+    def release_port_and_quit(self, profile_id, proxy_exe, port):
+        # 释放代理
+        free_port(exe_path=proxy_exe, port=port)
+        # 退出
+        # if driver is not None:
+        # driver.quit()
+        # driver.service.stop()
+        VMLogin.releaseProfileBrowser(profile_id)
+
+    def start_browser(self, times, proxy_exe, token, profile_id, country, state, city, platform, langHdr,
+                      accept_language, host,
+                      port, url):
+
+        result = 0
+        driver = None
+        try:
+            # 修改代理
+            change_proxy(exe_path=proxy_exe, country=country, state=state, city=city, port=port)
+            # 随机VMLogin配置文件
+            resp = VMLogin.randomEditProfile(token=token, profile_id=profile_id, platform=platform, langHdr=langHdr,
+                                             accept_language=accept_language, timeZone=None, proxyhost=host, port=port)
+            # 获取配置文件调试地址
+            debug_address = VMLogin.getDebugAddress(profile_id=profile_id)
+
+            # 设置配置
+            chrome_options = Options()
+            chrome_options.add_experimental_option("debuggerAddress", debug_address)
+            chrome_driver = Config.Chrome_Driver
+            # 开启浏览器
+            driver = webdriver.Chrome(chrome_driver, options=chrome_options)
+            self.log("准备打开网页")
+            driver.get(url)
+            self.log("浏览器启动成功")
+            result = 1
+
+        except:
+
+            self.release_port_and_quit(profile_id, proxy_exe, port)
+
+            if times >= 3:
+                self.log(f"任务{id}，浏览器启动失败，超出重试次数")
+                result = 3
+
+            else:
+                print(f"任务{id}，浏览器启动失败，休息五秒，重试端口: {port} 第 {times + 1} 次")
+                time.sleep(5)
+                result = 2
+
+            driver = None
+
+        if result == 2:
+            return self.start_browser(times=times + 1, proxy_exe=proxy_exe, token=token, profile_id=profile_id,
+                                      country=country, state=state,
+                                      city=city, platform=platform, langHdr=langHdr, accept_language=accept_language,
+                                      host=host,
+                                      port=port, url=url)
+
+        return result, driver
 
     def start_flow(self, tid, fid, driver):
         # 读取流程
@@ -184,7 +265,8 @@ class TaskWorker(QRunnable):
         self.do_steps(tid, steps, driver)
 
     def close_driver(self, driver, msg):
-        driver.quit()
+        # driver.quit()
+        self.release_port_and_quit(self.profile_id, Config.Proxy_API, self.proxy_port)
         if msg is not None:
             self.log(msg)
 
@@ -386,4 +468,3 @@ class TaskWorkerDispatcher(QObject):
 
             worker = self.build_task_worker(tid)
             self.signals.next_worker.emit(worker)
-

@@ -9,15 +9,23 @@
 import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
 import TaskWindow
+from utils.Tool import get_mac_address
+import Config
+from encrypt import Coder
 
 
 class LoginWindow(QMainWindow):
 
     def __init__(self):
         super(LoginWindow, self).__init__()
+
+        self.deviceId = get_mac_address()
+        Config.Device_Mac = self.deviceId
+        print("Mac地址: " + self.deviceId)
+
         self.setupUi(self)
 
     def setupUi(self, MainWindow):
@@ -62,9 +70,49 @@ class LoginWindow(QMainWindow):
 
         self.pushButton.clicked.connect(self.on_login)
 
-    def on_login(self):
+    def show_main(self):
         ui_main.show()
         self.close()
+
+    def on_login(self):
+
+        url = 'http://127.0.0.1:5000/login'
+        import requests
+
+        account = self.lineEdit.text()
+        if account is None or len(account) == 0:
+            self.alert_msg("请输入账号")
+            return
+
+        password = self.lineEdit_2.text()
+        if password is None or len(password) == 0:
+            self.alert_msg("请输入密码")
+            return
+
+        password = Coder.encrpt(password)
+        identifier = Coder.encrpt(self.deviceId)
+
+        post_data = {
+            "account": account,
+            "password": password,
+            "identifier": identifier,
+        }
+        res = requests.post(url=url, data=post_data)
+        if res.status_code == 200:
+            js = res.json()
+            code = js.get('code', None)
+            if code is not None and code == 0:
+                # self.alert_msg("登陆成功")
+                self.show_main()
+            else:
+                msg = js.get("msg", "未知错误")
+                self.alert_msg(msg)
+
+        else:
+            QMessageBox.about(self, '温馨提示', "网络错误……")
+
+    def alert_msg(self, msg):
+        QMessageBox.about(self, '温馨提示', msg)
 
 
 if __name__ == "__main__":
