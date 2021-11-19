@@ -97,18 +97,21 @@ class LoginWindow(QMainWindow):
             "password": password,
             "identifier": identifier,
         }
-        res = requests.post(url=url, data=post_data)
-        if res.status_code == 200:
-            js = res.json()
-            code = js.get('code', None)
-            if code is not None and code == 0:
-                # self.alert_msg("登陆成功")
-                self.show_main()
-            else:
-                msg = js.get("msg", "未知错误")
-                self.alert_msg(msg)
 
-        else:
+        try:
+            res = requests.post(url=url, data=post_data)
+            if res.status_code == 200:
+                js = res.json()
+                code = js.get('code', None)
+                if code is not None and code == 0:
+                    # self.alert_msg("登陆成功")
+                    self.show_main()
+                else:
+                    msg = js.get("msg", "未知错误")
+                    self.alert_msg(msg)
+            else:
+                QMessageBox.about(self, '温馨提示', "网络错误……")
+        except:
             QMessageBox.about(self, '温馨提示', "网络错误……")
 
     def alert_msg(self, msg):

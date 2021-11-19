@@ -138,6 +138,17 @@ class DataImportDialog(QtWidgets.QDialog):
         value = pre3
         return value
 
+    def check_duplicate_key(self, keys: list, key: str):
+        if keys is None or key is None:
+            return False
+        if keys.__contains__(key):
+            QMessageBox.information(self, '温馨提示',
+                                    f"重复字段 {key}",
+                                    QMessageBox.Yes, QMessageBox.Yes)
+
+            return True
+        return False
+
     def on_save(self):
         col_map = self.tableWidget.current_header_values()
         field_map = TableFields.maps
@@ -157,11 +168,18 @@ class DataImportDialog(QtWidgets.QDialog):
 
             # 月收入
             month_income = random.randint(1200, 2300)
+
+            opt = self.check_duplicate_key(keys, 'monthly_income')
+            if opt:
+                return
             keys.append("monthly_income")
             values.append(f"{month_income}")
 
             # 年收入
             year_income = month_income * random.randint(12, 14)
+            opt = self.check_duplicate_key(keys, 'year_income')
+            if opt:
+                return
             keys.append("year_income")
             values.append(f"{year_income}")
 
@@ -181,6 +199,10 @@ class DataImportDialog(QtWidgets.QDialog):
                                 value_n = len(txt)
                                 if value_n >= 4:
                                     ssn_last4 = txt[value_n - 4:value_n]  # 包括开始索引，不包含结束索引
+
+                                    opt = self.check_duplicate_key(keys, 'ssn_last4')
+                                    if opt:
+                                        return
                                     keys.append("ssn_last4")
                                     values.append(ssn_last4)
 
@@ -194,6 +216,10 @@ class DataImportDialog(QtWidgets.QDialog):
                                         if lf > 60 or lf < 20:  # 年龄太大或太小，忽略
                                             is_ignore = True
                                             break
+
+                                        opt = self.check_duplicate_key(keys, 'birth_year')
+                                        if opt:
+                                            return
                                         keys.append("birth_year")
                                         values.append(birth_year)
                                     except:
@@ -212,6 +238,9 @@ class DataImportDialog(QtWidgets.QDialog):
                                 except:
                                     txt = random.randint(1, 5)
 
+                            opt = self.check_duplicate_key(keys, key)
+                            if opt:
+                                return
                             keys.append(key)
                             values.append(txt)
 

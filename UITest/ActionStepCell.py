@@ -80,31 +80,24 @@ class ActionSetpCell(QtWidgets.QWidget):
         self.comboBox = QtWidgets.QComboBox(self)
         self.comboBox.setObjectName("comboBox")
         self.comboBox.addItem("请选择操作")
-        # self.comboBox.addItem("查找元素XPath")
-        # self.comboBox.addItem("查找元素ID")
-        # self.comboBox.addItem("查找元素Name")
-        # self.comboBox.addItem("点击")
-        # self.comboBox.addItem("输入文字")
-        # self.comboBox.addItem("选择")
 
+        # 操作
         actions = BrowserAction.actions
         for dic0 in actions:
             title = dic0['title']
             self.comboBox.addItem(title)
 
         self.horizontalLayout.addWidget(self.comboBox)
-
-
         self.field_comboBox = QtWidgets.QComboBox(self)
         self.field_comboBox.setObjectName("field_comboBox")
         self.field_comboBox.addItem("请选择使用字段")
 
+        # 数据表字段映射
         all_keys = TableFields.maps.keys()
         for key in all_keys:
             self.field_comboBox.addItem(key)
 
         self.horizontalLayout.addWidget(self.field_comboBox)
-
 
         self.lineEdit_2 = QtWidgets.QLineEdit(self)
         self.lineEdit_2.setObjectName("lineEdit_2")
@@ -118,4 +111,5 @@ class ActionSetpCell(QtWidgets.QWidget):
         self.lineEdit.setSizePolicy(sizePolicy)
         self.lineEdit.setMinimumSize(QtCore.QSize(100, 0))
         self.lineEdit.setObjectName("lineEdit")
+        self.lineEdit.setPlaceholderText("失败转向流程ID")
         self.horizontalLayout.addWidget(self.lineEdit)

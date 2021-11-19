@@ -52,6 +52,7 @@ class TaskWorker(QRunnable):
         self.is_running = False
         self.is_cancel = False
 
+        self.driver: webdriver = None
         self.main_steps = None
         self.t_name = None
         self.proxy_host = None
@@ -71,6 +72,7 @@ class TaskWorker(QRunnable):
     def run(self) -> None:
         self.is_running = True
         if self.is_cancel:
+            self.is_cancel = True
             self.finished()
             return
 
@@ -79,6 +81,7 @@ class TaskWorker(QRunnable):
         c = len(rests)
         if c == 0:
             self.log(f"任务 {self.tid} 不存在")
+            self.is_cancel = True
             self.finished()
             return
 
@@ -93,6 +96,7 @@ class TaskWorker(QRunnable):
 
         if self.flow_id == 0:
             self.log(f"任务 {self.tid} 请设置主流程")
+            self.is_cancel = True
             self.finished()
             return
 
@@ -100,6 +104,7 @@ class TaskWorker(QRunnable):
         name, steps = query_flow(self.flow_id)
         if name is None:
             self.log(f"任务 {self.tid} 主流程无效")
+            self.is_cancel = True
             self.finished()
             return
 
@@ -107,11 +112,40 @@ class TaskWorker(QRunnable):
         self.start_task()
 
     def log(self, msg):
+        if msg is None:
+            return
         self.logs.append(msg + '\n')
         print(msg)
 
+    def save_logs(self, file_name):
+        import os
+        root = os.getcwd()
+
+        log_dir = os.path.join(root, 'log')
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+
+        path = os.path.join(log_dir, file_name)
+        with open(path, 'w', encoding='utf-8') as f:
+            for line in self.logs:
+                f.write(line)
+
+    def stop_task(self, msg):
+        self.log(msg)
+        self.signals.no_data.emit(self.tid)
+
     def finished(self):
         self.is_running = False
+
+        import datetime
+        now_time = datetime.datetime.now()
+        time_str = datetime.datetime.strftime(now_time, '%Y-%m-%d_%H_%M_%S')
+
+        file_name = f"任务{self.tid}_{time_str}.log"
+        if self.is_cancel:
+            file_name = f"取消_任务{self.tid}_{time_str}.log"
+
+        self.save_logs(file_name)
         self.signals.finished.emit(self.tid)
 
     def do_next(self):
@@ -158,8 +192,9 @@ class TaskWorker(QRunnable):
         # 准备数据
         self.prepare_data()
         if self.data is None:
-            self.signals.no_data.emit(self.tid)
             self.log(f"任务{self.tid} 没有可执行数据")
+            self.is_cancel = True
+            self.signals.no_data.emit(self.tid)
             return
 
         # 添加任务记录
@@ -197,13 +232,15 @@ class TaskWorker(QRunnable):
 
     # 释放端口并退出浏览器
     def release_port_and_quit(self, profile_id, proxy_exe, port):
+        driver = self.driver
         # 释放代理
-        free_port(exe_path=proxy_exe, port=port)
+        # free_port(exe_path=proxy_exe, port=port)
+        # VMLogin.releaseProfileBrowser(profile_id)
+
         # 退出
-        # if driver is not None:
-        # driver.quit()
-        # driver.service.stop()
-        VMLogin.releaseProfileBrowser(profile_id)
+        if driver is not None:
+            driver.quit()
+            # driver.service.stop()
 
     def start_browser(self, times, proxy_exe, token, profile_id, country, state, city, platform, langHdr,
                       accept_language, host,
@@ -212,24 +249,26 @@ class TaskWorker(QRunnable):
         result = 0
         driver = None
         try:
-            # 修改代理
-            change_proxy(exe_path=proxy_exe, country=country, state=state, city=city, port=port)
-            # 随机VMLogin配置文件
-            resp = VMLogin.randomEditProfile(token=token, profile_id=profile_id, platform=platform, langHdr=langHdr,
-                                             accept_language=accept_language, timeZone=None, proxyhost=host, port=port)
-            # 获取配置文件调试地址
-            debug_address = VMLogin.getDebugAddress(profile_id=profile_id)
-
+            # # 修改代理
+            # change_proxy(exe_path=proxy_exe, country=country, state=state, city=city, port=port)
+            # # 随机VMLogin配置文件
+            # resp = VMLogin.randomEditProfile(token=token, profile_id=profile_id, platform=platform, langHdr=langHdr,
+            #                                  accept_language=accept_language, timeZone=None, proxyhost=host, port=port)
+            # # 获取配置文件调试地址
+            # debug_address = VMLogin.getDebugAddress(profile_id=profile_id)
+            #
             # 设置配置
             chrome_options = Options()
-            chrome_options.add_experimental_option("debuggerAddress", debug_address)
+            # chrome_options.add_experimental_option("debuggerAddress", debug_address)
             chrome_driver = Config.Chrome_Driver
             # 开启浏览器
             driver = webdriver.Chrome(chrome_driver, options=chrome_options)
+
             self.log("准备打开网页")
             driver.get(url)
             self.log("浏览器启动成功")
             result = 1
+            self.driver = driver
 
         except:
 
@@ -240,7 +279,7 @@ class TaskWorker(QRunnable):
                 result = 3
 
             else:
-                print(f"任务{id}，浏览器启动失败，休息五秒，重试端口: {port} 第 {times + 1} 次")
+                self.log(f"任务{id}，浏览器启动失败，等待五秒，重试端口: {port} 第 {times + 1} 次")
                 time.sleep(5)
                 result = 2
 
@@ -259,7 +298,8 @@ class TaskWorker(QRunnable):
         # 读取流程
         name, steps = query_flow(fid)
         if name is None:
-            self.close_driver(driver, f"任务 {tid} 主流程 {fid} 无效")
+            self.close_driver(driver, f"任务 {tid} 主流程 {fid} 无效, 关闭浏览器")
+            self.stop_task("停止任务")
             return
 
         self.do_steps(tid, steps, driver)
@@ -270,9 +310,20 @@ class TaskWorker(QRunnable):
         if msg is not None:
             self.log(msg)
 
+    # 模式手动输入
+    def type_words(self, element, string):
+        for ch in string:
+            time.sleep(0.1)
+            element.send_keys(ch)
+
     def do_steps(self, tid, steps, driver):
         el = None
         for step in steps:
+            if self.is_cancel:
+                self.close_driver(driver, f"取消执行任务， 关闭浏览器")
+                self.stop_task("任务停止")
+                return
+
             flow_id = step['flow_id']
             step_index = step['step']
             action = step['action']
@@ -281,42 +332,90 @@ class TaskWorker(QRunnable):
             field = step['field_val']
 
             try:
-                if action == 1:
+                if action == 1:  # 成功任务
+                    self.do_task_record_data_success()
 
+                elif action == 2:  # 查找元素XPath
                     if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素XPath，没有设置xpath值")
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素XPath，没有设置xpath值, 关闭浏览器")
+                        self.stop_task("任务停止")
                         return
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素XPath，{vl}")
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.XPATH, vl)))
-                elif action == 2:
+
+                elif action == 3:  # 查找元素ID
                     if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素ID，没有设置ID值")
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素ID，没有设置ID值, 关闭浏览器")
+                        self.stop_task("任务停止")
                         return
 
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素ID，{vl}")
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.ID, vl)))
 
-                elif action == 3:
+                elif action == 4:  # 查找元素Name
                     if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素Name，没有设置Name值")
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素Name，没有设置Name值, 关闭浏览器")
+                        self.stop_task("任务停止")
                         return
 
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素Name，{vl}")
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.NAME, vl)))
-                elif action == 4:
+
+                elif action == 5:  # 查找元素CSS Selector
+                    if vl is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素Name，没有设置CSS值, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素CSS，{vl}")
+
+                    # css selector常用符号;
+                    # . 表示class
+                    # # 表示id
+                    # > 表示子元素，层级
+                    el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.CSS_SELECTOR, vl)))
+
+                elif action == 6:  # 查找元素Text
+                    if vl is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素LinkText，没有设置Text值, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素LinkText，{vl}")
+                    el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.PARTIAL_LINK_TEXT, vl)))
+
+                elif action == 7:  # 查找元素文字
+                    if vl is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，查找元素文字，没有设置文字值, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素文字，{vl}")
+                    els = driver.find_elements_by_xpath(f"//*[contains(text(),'{vl}')]")
+                    el = None
+                    for e in els:
+                        if e.is_displayed():
+                            el = e
+                            continue
+
+                elif action == 8:  # 点击
                     if el is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，点击，没有找到元素")
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，点击，没有找到元素, 关闭浏览器")
+                        self.stop_task("任务停止")
                         return
 
                     self.log(f"流程{flow_id} 执行步骤{step_index} 点击")
                     el.click()
-                elif action == 5:
+
+                elif action == 9:  # 输入
                     if el is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，输入，没有找到元素")
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，输入，没有找到元素, 关闭浏览器")
+                        self.stop_task("任务停止")
                         return
 
                     if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，输入，没有设置输入值")
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，输入，没有设置输入值, 关闭浏览器")
+                        self.stop_task("任务停止")
                         return
 
                     self.log(f"流程{flow_id} 执行步骤{step_index} 输入 字段 {field} 值 {vl}")
@@ -328,10 +427,13 @@ class TaskWorker(QRunnable):
                             if column_name is not None:  # 输入的是数据库中存的数据，column_name为字段
                                 input_str = self.data.get(column_name, vl)
 
-                    el.send_keys(input_str)
-                elif action == 6:
+                    self.type_words(el, input_str)
+                    # el.send_keys(input_str)
+
+                elif action == 10:  # 选择
                     if el is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，选择，没有找到元素")
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，选择，没有找到元素, 关闭浏览器")
+                        self.stop_task("任务停止")
                         return
 
                     s = Select(el)
@@ -339,47 +441,21 @@ class TaskWorker(QRunnable):
                     random_indx = random.randint(0, l - 1)
                     self.log(f"流程{flow_id} 执行步骤{step_index} Select随机选择")
                     s.select_by_index(random_indx)
-                elif action == 7:
+
+                elif action == 11:  # 强制等待
                     seconds = 10
                     if vl is not None:
                         try:
                             seconds = int(vl)
                         except Exception:
                             seconds = 10
+                    self.log(f"流程{flow_id} 执行步骤{step_index} 强制等待 {seconds}秒")
                     time.sleep(seconds)
-                elif action == 8:
 
-                    if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，成功元素XPath，没有设置xpath值")
-                        return
-                    self.log(f"流程{flow_id} 执行步骤{step_index}，成功元素XPath，{vl}")
-                    s_el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.XPATH, vl)))
-
-                    if s_el is not None:
-                        self.do_task_record_data_success()
-
-                elif action == 9:
-                    if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，成功元素ID，没有设置ID值")
-                        return
-
-                    self.log(f"流程{flow_id} 执行步骤{step_index}，成功元素ID，{vl}")
-                    s_el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.ID, vl)))
-                    if s_el is not None:
-                        self.do_task_record_data_success()
-
-                elif action == 10:
-                    if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，成功元素Name，没有设置Name值")
-                        return
-
-                    self.log(f"流程{flow_id} 执行步骤{step_index}，成功元素Name，{vl}")
-                    s_el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.NAME, vl)))
-                    if s_el is not None:
-                        self.do_task_record_data_success()
-
-                else:
-                    self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，未知操作")
+                else:  # 未知操作
+                    self.update_task_record_status(2)
+                    self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，未知操作, 关闭浏览器")
+                    self.stop_task("任务停止")
 
             except:
 
@@ -391,7 +467,7 @@ class TaskWorker(QRunnable):
 
                 traceback.print_exc()
                 exctype, value = sys.exc_info()[:2]
-                self.log(f"{exctype} {value} {traceback.format_exc()}")
+                self.log(f"流程{flow_id} 执行步骤{step_index} 异常:\n{exctype} {value} {traceback.format_exc()}")
 
                 if value is NoSuchWindowException:  # 浏览器窗口被关闭了
                     self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 浏览器窗口被关闭")
@@ -406,7 +482,7 @@ class TaskWorker(QRunnable):
         wait_ex = random.randint(6, 12)
         self.log(f"任务 {self.tid} 执行完成, 等待{wait_ex}秒，再执行下次")
         time.sleep(wait_ex)
-        self.close_driver(driver, f"流程{flow_id} 执行完成")
+        self.close_driver(driver, f"流程{flow_id} 执行完成， 关闭浏览器")
 
         # 下一个
         self.update_task_record_status(1)
@@ -449,6 +525,12 @@ class TaskWorkerDispatcher(QObject):
         self.thread_pool.start(worker)
         self.workers.append(worker)
 
+    def stop_task(self, tid):
+        for worker in self.workers:
+            if worker.tid == tid:
+                worker.is_cancel = True
+                return
+
     def on_task_no_data(self, tid):
         self.signals.finished.emit(tid)
 
@@ -457,7 +539,7 @@ class TaskWorkerDispatcher(QObject):
         rm_workers = []
 
         for worker in self.workers:
-            if worker.wait_next:
+            if worker.wait_next or worker.is_cancel:
                 rm_workers.append(worker)
 
         for wk in rm_workers:
@@ -466,5 +548,6 @@ class TaskWorkerDispatcher(QObject):
             wk.finished()
             self.workers.remove(wk)
 
-            worker = self.build_task_worker(tid)
-            self.signals.next_worker.emit(worker)
+            if wk.wait_next:
+                worker = self.build_task_worker(tid)
+                self.signals.next_worker.emit(worker)
