@@ -42,5 +42,9 @@ actions = [
     {
         "action": 11,
         "title": "强制等待"
+    },
+    {
+        "action": 12,
+        "title": "输入随机数"
     }
 ]

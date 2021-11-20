@@ -224,6 +224,22 @@ class DataImportDialog(QtWidgets.QDialog):
                                         values.append(birth_year)
                                     except:
                                         pass
+                                # 出生月
+                                if len(birthday) >= 7:
+                                    bM = birthday[5:7]
+                                    opt = self.check_duplicate_key(keys, 'birth_month')
+                                    if opt:
+                                        return
+                                    keys.append("birth_month")
+                                    values.append(bM)
+                                # 出生日
+                                if len(birthday) >= 10:
+                                    bD = birthday[8:10]
+                                    opt = self.check_duplicate_key(keys, 'birth_day')
+                                    if opt:
+                                        return
+                                    keys.append("birth_day")
+                                    values.append(bD)
 
                             if key == "home_phone":
                                 if len(txt) != 10:  # 联系电话无效

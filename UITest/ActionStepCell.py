@@ -20,7 +20,7 @@ class TaskActionFlowStep:
     任务执行动作
     '''
 
-    def __init__(self, flow_id, step, action, field, content, branch_flow_id=None):
+    def __init__(self, flow_id, step, action, field, content, branch_flow_id=None, msg=None):
         self.id = None
         self.flow_id = flow_id
         self.step = step
@@ -28,6 +28,7 @@ class TaskActionFlowStep:
         self.content = content
         self.branch_flow_id = branch_flow_id
         self.field = field
+        self.msg = msg
 
 
 class ActionSetpCell(QtWidgets.QWidget):
@@ -50,7 +51,7 @@ class ActionSetpCell(QtWidgets.QWidget):
             field = key
 
         step = TaskActionFlowStep(flow_id=flow_id, step=self.index, action=action_id, field=field,
-                                  content=self.lineEdit_2.text(), branch_flow_id=self.lineEdit.text())
+                                  content=self.lineEdit_2.text(), branch_flow_id=self.lineEdit.text(), msg=self.le0.text())
 
         if self.edit_id is not None:
             step.id = self.edit_id
@@ -109,7 +110,18 @@ class ActionSetpCell(QtWidgets.QWidget):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.lineEdit.sizePolicy().hasHeightForWidth())
         self.lineEdit.setSizePolicy(sizePolicy)
-        self.lineEdit.setMinimumSize(QtCore.QSize(100, 0))
+        self.lineEdit.setMinimumSize(QtCore.QSize(30, 0))
         self.lineEdit.setObjectName("lineEdit")
         self.lineEdit.setPlaceholderText("失败转向流程ID")
         self.horizontalLayout.addWidget(self.lineEdit)
+
+        self.le0 = QtWidgets.QLineEdit(self)
+        sp = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sp.setHorizontalStretch(0)
+        sp.setVerticalStretch(0)
+        sp.setHeightForWidth(self.le0.sizePolicy().hasHeightForWidth())
+        self.le0.setSizePolicy(sp)
+        self.le0.setMinimumSize(QtCore.QSize(120, 0))
+        self.le0.setObjectName("le0")
+        self.le0.setPlaceholderText("说明")
+        self.horizontalLayout.addWidget(self.le0)

@@ -63,6 +63,11 @@ def insert_flow_step(step: TaskActionFlowStep, flow_id):
         field_val = ''
     field_val = database.Database.escape_string(field_val)
 
+    msg = step.msg
+    if msg is None:
+        msg = ''
+    msg = database.Database.escape_string(msg)
+
     turn_flow_id_text = step.branch_flow_id
     turn_flow_id = 0
     if turn_flow_id_text is not None:
@@ -74,7 +79,7 @@ def insert_flow_step(step: TaskActionFlowStep, flow_id):
 
         turn_flow_id = f_turn_id
 
-    sql = f'INSERT INTO `t_task_flow_step` (flow_id, step, action, field_val,`value`, turn_flow_id) VALUES ({flow_id}, {step.step}, {step.action}, \'{field_val}\', \'{content}\', {turn_flow_id});'
+    sql = f'INSERT INTO `t_task_flow_step` (flow_id, step, action, field_val,`value`, turn_flow_id, msg) VALUES ({flow_id}, {step.step}, {step.action}, \'{field_val}\', \'{content}\', {turn_flow_id}, \'{msg}\');'
     mysql_pool.execute(sql)
 
 
@@ -91,6 +96,11 @@ def update_flow_step(step: TaskActionFlowStep):
         field_val = ''
     field_val = database.Database.escape_string(field_val)
 
+    msg = step.msg
+    if msg is None:
+        msg = ''
+    msg = database.Database.escape_string(msg)
+
     turn_flow_id_text = step.branch_flow_id
     turn_flow_id = 0
     if turn_flow_id_text is not None:
@@ -102,7 +112,7 @@ def update_flow_step(step: TaskActionFlowStep):
 
         turn_flow_id = f_turn_id
 
-    sql = f'update `t_task_flow_step` set step={step.step}, action={step.action}, field_val=\'{field_val}\',`value`=\'{content}\', turn_flow_id={turn_flow_id} where id={step.id};'
+    sql = f'update `t_task_flow_step` set step={step.step}, action={step.action}, field_val=\'{field_val}\',`value`=\'{content}\', turn_flow_id={turn_flow_id}, msg=\'{msg}\' where id={step.id};'
     mysql_pool.execute(sql)
 
 
@@ -189,6 +199,9 @@ class NewActionFlowDialog(QtWidgets.QDialog):
                     cell.lineEdit.setText(f'{turn_id}')
                 else:
                     cell.lineEdit.setText("")
+
+                msg = dic0['msg']
+                cell.le0.setText(msg)
 
     def on_add_step(self):
         self.stepNum = self.stepNum + 1

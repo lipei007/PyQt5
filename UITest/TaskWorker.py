@@ -10,6 +10,7 @@ from selenium.webdriver.support import expected_conditions as Expect
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver import ActionChains
 
 import TableFields
 import database.Database
@@ -185,6 +186,18 @@ class TaskWorker(QRunnable):
         mysql_pool.execute(sql)
 
     def start_task(self):
+
+        sql = f'select * from t_task where id={self.tid};'
+        rests = mysql_pool.query(sql)
+        c = len(rests)
+        if c == 0:
+            self.finished()
+            return
+        dic0 = rests[0]
+        status = dic0.get('is_running', 0)
+        if status == 0:
+            self.is_cancel = True
+
         if self.is_cancel:
             self.finished()
             return
@@ -313,7 +326,7 @@ class TaskWorker(QRunnable):
     # 模式手动输入
     def type_words(self, element, string):
         for ch in string:
-            time.sleep(0.1)
+            time.sleep(0.3)
             element.send_keys(ch)
 
     def do_steps(self, tid, steps, driver):
@@ -342,6 +355,7 @@ class TaskWorker(QRunnable):
                         return
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素XPath，{vl}")
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.XPATH, vl)))
+                    ActionChains(driver).move_to_element(el).perform()
 
                 elif action == 3:  # 查找元素ID
                     if vl is None:
@@ -351,6 +365,7 @@ class TaskWorker(QRunnable):
 
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素ID，{vl}")
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.ID, vl)))
+                    ActionChains(driver).move_to_element(el).perform()
 
                 elif action == 4:  # 查找元素Name
                     if vl is None:
@@ -360,6 +375,7 @@ class TaskWorker(QRunnable):
 
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素Name，{vl}")
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.NAME, vl)))
+                    ActionChains(driver).move_to_element(el).perform()
 
                 elif action == 5:  # 查找元素CSS Selector
                     if vl is None:
@@ -374,6 +390,7 @@ class TaskWorker(QRunnable):
                     # # 表示id
                     # > 表示子元素，层级
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.CSS_SELECTOR, vl)))
+                    ActionChains(driver).move_to_element(el).perform()
 
                 elif action == 6:  # 查找元素Text
                     if vl is None:
@@ -383,6 +400,7 @@ class TaskWorker(QRunnable):
 
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素LinkText，{vl}")
                     el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.PARTIAL_LINK_TEXT, vl)))
+                    ActionChains(driver).move_to_element(el).perform()
 
                 elif action == 7:  # 查找元素文字
                     if vl is None:
@@ -397,6 +415,8 @@ class TaskWorker(QRunnable):
                         if e.is_displayed():
                             el = e
                             continue
+                    if el is not None:
+                        ActionChains(driver).move_to_element(el).perform()
 
                 elif action == 8:  # 点击
                     if el is None:
@@ -436,11 +456,36 @@ class TaskWorker(QRunnable):
                         self.stop_task("任务停止")
                         return
 
+                    lst_n = None
+                    if vl is not None and len(vl) > 0:
+                        vl_str = str(vl).replace('，', ',')  # 中文逗号转英文逗号
+                        vl_str = vl_str.replace(' ', '')  # 剔除空格
+                        arr = vl_str.split(',')
+                        tmp_arr = [int]
+
+                        # 将输入的索引转为整数
+                        for s in arr:
+                            try:
+                                i = int(s)
+                                tmp_arr.append(i)
+                            except:
+                                pass
+
+                        # 随机获取索引
+                        if len(tmp_arr) > 0:
+                            lst_n = tmp_arr[random.randint(0, len(tmp_arr)-1)]
+                            try:
+                                lst_n = int(lst_n)
+                            except:
+                                print(f"lst_n = {lst_n}")
+                                lst_n = None
+
                     s = Select(el)
                     l = len(s.options)
-                    random_indx = random.randint(0, l - 1)
-                    self.log(f"流程{flow_id} 执行步骤{step_index} Select随机选择")
-                    s.select_by_index(random_indx)
+                    if not (lst_n is not None and 0 <= lst_n < l):
+                        lst_n = random.randint(0, l - 1)
+                    self.log(f"流程{flow_id} 执行步骤{step_index} Select随机选择索引 {lst_n}")
+                    s.select_by_index(lst_n)
 
                 elif action == 11:  # 强制等待
                     seconds = 10
@@ -451,6 +496,38 @@ class TaskWorker(QRunnable):
                             seconds = 10
                     self.log(f"流程{flow_id} 执行步骤{step_index} 强制等待 {seconds}秒")
                     time.sleep(seconds)
+
+                elif action == 12:  # 输入随机数
+                    if el is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，输入，没有找到元素, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    if vl is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常, 没有设置随机数范围， 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+                    vl_str = str(vl)
+                    vl_str = vl_str.replace(' ', '')
+                    vl_str = vl_str.replace('，', ',')
+                    arr = vl_str.split(',')
+                    if len(arr) < 2:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常, 设置随机数格式不正确， 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+                    v0 = int(arr[0])
+                    v1 = int(arr[1])
+                    if v0 > v1:
+                        tmp = v0
+                        v0 = v1
+                        v1 = tmp
+                    r = random.randint(v0, v1)
+                    if r > 100:
+                        r = int(r / 100)
+                        r = r * 100
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index} 随机输入 {r}")
+                    self.type_words(el, f'{r}')
 
                 else:  # 未知操作
                     self.update_task_record_status(2)
