@@ -11,8 +11,9 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QListWidgetItem, QMessageBox
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtWidgets import QListWidgetItem, QMessageBox, QMenu, QAction
+from PyQt5.QtGui import QCursor
 
 import database.Database
 from ActionStepCell import ActionSetpCell, TaskActionFlowStep
@@ -131,7 +132,7 @@ def update_flow(flow: TaskActionFlow):
 
 
 def query_all_step(flow_id):
-    sql = f'select * from t_task_flow_step where flow_id={flow_id};'
+    sql = f'select * from t_task_flow_step where flow_id={flow_id} ORDER BY step asc;'
     arr = mysql_pool.query(sql)
     return arr
 
@@ -158,6 +159,7 @@ class NewActionFlowDialog(QtWidgets.QDialog):
 
     def __init__(self, task_id, flow_id=None, callback=None):
         super(NewActionFlowDialog, self).__init__()
+        self.f = None
         self.stepNum = 0
         self.contentH = 0
         self.stepArr = []
@@ -170,6 +172,8 @@ class NewActionFlowDialog(QtWidgets.QDialog):
 
         self.pushButton_2.clicked.connect(self.on_add_step)
         self.pushButton.clicked.connect(self.on_save)
+
+        self.setup_menu()
 
         if flow_id is None:
             self.flow_id = queryFlowID()
@@ -202,6 +206,68 @@ class NewActionFlowDialog(QtWidgets.QDialog):
 
                 msg = dic0['msg']
                 cell.le0.setText(msg)
+
+    def setup_menu(self):
+        # 单击选中某一个选项
+        self.listWidget.clicked.connect(self.on_click_row)
+
+        # 窗口绑定右键事件
+        self.window().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.window().customContextMenuRequested.connect(self.show_context_menu)
+
+        # 创建QMenu
+        self.contextMenu = QMenu(self)
+        self.actionA = QAction("插入动作")
+        self.contextMenu.addAction(self.actionA)
+
+        self.contextMenu.addSeparator()
+
+        self.actionB = QAction("删除动作")
+        self.contextMenu.addAction(self.actionB)
+
+        # 点击menu
+        self.actionA.triggered.connect(self.on_insert_step)
+        self.actionB.triggered.connect(self.on_delete_step)
+
+    def show_context_menu(self):
+
+        items = self.listWidget.selectedItems()
+        if len(items) > 0:
+            # self.contextMenu.show()
+            self.contextMenu.popup(QCursor.pos())  # 在鼠标位置显示
+            self.contextMenu.show()
+
+    def on_click_row(self, index):
+        self.f = index.row()
+        if self.f is None:
+            return
+        print(f"点击了行 {self.f}")
+
+    def on_insert_step(self):
+        if self.f is None:
+            return
+        print("点击右键菜单")
+        step_n = self.f + 2
+        item_widget = QListWidgetItem()
+
+        item_widget.setSizeHint(QSize(self.width(), 60))
+        self.listWidget.insertItem(self.f + 1, item_widget)
+
+        cell = ActionSetpCell(step_n)
+        self.listWidget.setItemWidget(item_widget, cell)
+        self.contentH = self.contentH + 60
+
+        for i in range(self.f + 1, self.stepNum):
+            cll = self.stepArr[i]
+            cll.change_index(i+2)
+
+        self.stepArr.insert(self.f + 1, cell)
+        self.stepNum = self.stepNum + 1
+
+    def on_delete_step(self):
+        if self.f is None:
+            return
+        print("点击右键菜单")
 
     def on_add_step(self):
         self.stepNum = self.stepNum + 1

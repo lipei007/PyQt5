@@ -2,6 +2,7 @@ import random
 import sys
 import time
 import traceback
+from urllib.parse import urlparse
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchWindowException
@@ -33,7 +34,7 @@ def query_flow(fid):
     else:
         name = res[0]['flow_name']
 
-    step_sql = f'select * from t_task_flow_step where flow_id={fid};'
+    step_sql = f'select * from t_task_flow_step where flow_id={fid} order by step asc;'
     res = mysql_pool.query(step_sql)
     return name, res
 
@@ -399,7 +400,8 @@ class TaskWorker(QRunnable):
                         return
 
                     self.log(f"流程{flow_id} 执行步骤{step_index}，查找元素LinkText，{vl}")
-                    el = WebDriverWait(driver, 10, 0.5).until(Expect.presence_of_element_located((By.PARTIAL_LINK_TEXT, vl)))
+                    el = WebDriverWait(driver, 10, 0.5).until(
+                        Expect.presence_of_element_located((By.PARTIAL_LINK_TEXT, vl)))
                     ActionChains(driver).move_to_element(el).perform()
 
                 elif action == 7:  # 查找元素文字
@@ -433,19 +435,25 @@ class TaskWorker(QRunnable):
                         self.stop_task("任务停止")
                         return
 
+                    input_str = vl
                     if vl is None:
-                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，输入，没有设置输入值, 关闭浏览器")
-                        self.stop_task("任务停止")
-                        return
+                        input_str = ''
 
                     self.log(f"流程{flow_id} 执行步骤{step_index} 输入 字段 {field} 值 {vl}")
 
-                    input_str = vl
                     if field is not None:
                         if len(field) > 0:
                             column_name = TableFields.maps.get(field, None)
                             if column_name is not None:  # 输入的是数据库中存的数据，column_name为字段
                                 input_str = self.data.get(column_name, vl)
+
+                    if input_str is not None:
+                        input_str = f'{input_str}'
+
+                    if input_str is None or len(input_str) == 0:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，输入，没有设置输入值, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
 
                     self.type_words(el, input_str)
                     # el.send_keys(input_str)
@@ -461,7 +469,7 @@ class TaskWorker(QRunnable):
                         vl_str = str(vl).replace('，', ',')  # 中文逗号转英文逗号
                         vl_str = vl_str.replace(' ', '')  # 剔除空格
                         arr = vl_str.split(',')
-                        tmp_arr = [int]
+                        tmp_arr = []
 
                         # 将输入的索引转为整数
                         for s in arr:
@@ -473,7 +481,7 @@ class TaskWorker(QRunnable):
 
                         # 随机获取索引
                         if len(tmp_arr) > 0:
-                            lst_n = tmp_arr[random.randint(0, len(tmp_arr)-1)]
+                            lst_n = tmp_arr[random.randint(0, len(tmp_arr) - 1)]
                             try:
                                 lst_n = int(lst_n)
                             except:
@@ -529,6 +537,153 @@ class TaskWorker(QRunnable):
                     self.log(f"流程{flow_id} 执行步骤{step_index} 随机输入 {r}")
                     self.type_words(el, f'{r}')
 
+                elif action == 13:  # 选择Value
+                    if el is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，选择Value，没有找到元素, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    input_str = vl
+                    if vl is None:
+                        input_str = ''
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index} 选择Value 字段 {field} 值 {vl}")
+
+                    if field is not None:
+                        if len(field) > 0:
+                            column_name = TableFields.maps.get(field, None)
+                            if column_name is not None:  # 输入的是数据库中存的数据，column_name为字段
+                                input_str = self.data.get(column_name, vl)
+
+                    if input_str is None or len(input_str) == 0:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，选择Value，没有设置值, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    s = Select(el)
+                    s.select_by_value(input_str)
+
+                elif action == 14:  # 选择Text
+                    if el is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，选择Text，没有找到元素, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    input_str = vl
+                    if vl is None:
+                        input_str = ''
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index} 选择Text 字段 {field} 值 {vl}")
+
+                    if field is not None:
+                        if len(field) > 0:
+                            column_name = TableFields.maps.get(field, None)
+                            if column_name is not None:  # 输入的是数据库中存的数据，column_name为字段
+                                input_str = self.data.get(column_name, vl)
+
+                    if input_str is None or len(input_str) == 0:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，选择Text，没有设置值, 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    s = Select(el)
+                    s.select_by_visible_text(input_str)
+
+                elif action == 15:  # 跳转流程
+                    if vl is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常, 跳转流程没设置流程ID， 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    try:
+                        turn_to = int(vl)
+                        if turn_to == 0:
+                            self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，跳转流程ID为0, 关闭浏览器")
+                            self.stop_task("任务停止")
+
+                        else:
+                            self.log(f"流程{flow_id} 执行步骤{step_index}，跳转流程 {turn_to}")
+                            self.start_flow(tid, turn_to, driver)
+
+                    except:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，跳转流程ID错误, 关闭浏览器")
+                        self.stop_task("任务停止")
+
+                    return
+                elif action == 16:  # 切换到新窗口
+                    self.log(f"流程{flow_id} 执行步骤{step_index}，切换窗口")
+
+                    cur_handle = driver.current_window_handle
+                    cur_url = driver.current_url
+                    cur_host = urlparse(cur_url).netloc
+
+                    handles = driver.window_handles()
+                    if len(handles) <= 1:
+                        self.log(f"流程{flow_id} 执行步骤{step_index}，无其他窗口可切换")
+                        continue
+
+                    to_hd = None
+                    for hd in handles:
+                        driver.switch_to_window(hd)
+                        hd_url = driver.current_url
+                        hd_host = urlparse(hd_url).netloc
+                        if hd != cur_handle and hd_host == cur_host:
+                            to_hd = hd
+                            break
+
+                    if to_hd is not None:  # 可以切换
+                        for hd in handles:
+                            driver.switch_to_window(hd)
+                            if hd != to_hd:  # 关闭窗口
+                                driver.close()
+
+                        # 最终切换到目标窗口
+                        driver.switch_to_window(to_hd)
+                        self.log(f"流程{flow_id} 执行步骤{step_index}，关闭其他窗口，成功切换到目标窗口")
+
+                elif action == 17:  # 删除只读属性
+                    if vl is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 删除只读属性ByID， 没有设置ID值， 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    js_script = f'document.getElementById(\"{vl}\").removeAttribute("readonly");'
+                    driver.execute_script(js_script)
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index} 执行JS脚本 删除只读属性ByID {vl}")
+
+                elif action == 18:  # 选择日期
+                    if vl is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 查找日期值， 没有设置XPath， 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    date_elements = driver.find_elements_by_xpath(vl)
+                    if len(date_elements) == 0:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 查找日期值， 没找到任何元素， 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    random_day = random.randint(20, 28)
+
+                    self.log(f"流程{flow_id} 执行步骤{step_index} 随机选择日期 {random_day}")
+
+                    day_el = None
+                    for elment in date_elements:
+                        date_text = elment.text
+                        if date_text == f'{random_day}':
+                            day_el = elment
+                            break
+
+                    if day_el is None:
+                        self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 查找日期值， 没找到合适的日期， 关闭浏览器")
+                        self.stop_task("任务停止")
+                        return
+
+                    # location_x, location_y = day_el.location.values()
+                    # ActionChains(driver).move_by_offset(location_x, location_y).click().perform()
+                    ActionChains(driver).move_to_element(day_el).click().perform()
+
                 else:  # 未知操作
                     self.update_task_record_status(2)
                     self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，未知操作, 关闭浏览器")
@@ -549,7 +704,8 @@ class TaskWorker(QRunnable):
                 if value is NoSuchWindowException:  # 浏览器窗口被关闭了
                     self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 浏览器窗口被关闭")
                 else:
-                    self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，抛出异常")
+                    # self.close_driver(driver, f"流程{flow_id} 执行步骤{step_index} 异常，抛出异常")
+                    time.sleep(60)
 
                 # 执行下一个
                 self.update_task_record_status(2)

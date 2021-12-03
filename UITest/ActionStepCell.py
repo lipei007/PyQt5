@@ -125,3 +125,7 @@ class ActionSetpCell(QtWidgets.QWidget):
         self.le0.setObjectName("le0")
         self.le0.setPlaceholderText("说明")
         self.horizontalLayout.addWidget(self.le0)
+
+    def change_index(self, index):
+        self.index = index
+        self.label.setText(f"{index}")
