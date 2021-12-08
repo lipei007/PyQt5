@@ -5,6 +5,7 @@ from selenium.webdriver.chrome.options import Options
 import requests
 
 # 通过配置文件ID启动浏览器
+from UITest.utils import Browser
 
 
 def startBrowserByProfileId(profile_id, url):

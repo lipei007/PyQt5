@@ -30,6 +30,7 @@ import database
 from database.Database import DataBasePool
 import Config
 
+
 def alert_msg(parent, msg):
     QMessageBox.about(parent, '温馨提示', msg)
 
@@ -140,6 +141,8 @@ class Ui_MainWindow(QMainWindow):
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
         self.verticalLayout.setObjectName("verticalLayout")
+
+        # Chrome Driver
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.label = QtWidgets.QLabel(self.centralwidget)
@@ -162,9 +165,13 @@ class Ui_MainWindow(QMainWindow):
         self.horizontalLayout.addWidget(self.toolButton_2)
         self.verticalLayout.addLayout(self.horizontalLayout)
 
+        # Proxy
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_2 = QtWidgets.QComboBox(self.centralwidget)
+        self.label_2.setStyleSheet("QAbstractItemView::item {height: 25px;}")
+        self.label_2.setView(QtWidgets.QListView())
+
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -184,9 +191,13 @@ class Ui_MainWindow(QMainWindow):
         self.horizontalLayout_2.addWidget(self.toolButton)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
+        # VMLogin
         self.horizontalLayout3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout3.setObjectName("horizontalLayout_3")
-        self.label3 = QtWidgets.QLabel(self.centralwidget)
+        self.label3 = QtWidgets.QComboBox(self.centralwidget)
+        self.label3.setStyleSheet("QAbstractItemView::item {height: 25px;}")
+        self.label3.setView(QtWidgets.QListView())
+
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -205,7 +216,6 @@ class Ui_MainWindow(QMainWindow):
         self.toolButton_3.setObjectName("toolButton_3")
         self.horizontalLayout3.addWidget(self.toolButton_3)
         self.verticalLayout.addLayout(self.horizontalLayout3)
-
 
         self.listWidget = QtWidgets.QListWidget(self.centralwidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -244,7 +254,6 @@ class Ui_MainWindow(QMainWindow):
         self.menu.addSeparator()
         self.menu.addMenu(self.menu_import)
 
-
         self.menubar.addAction(self.menu.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -255,13 +264,23 @@ class Ui_MainWindow(QMainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.label.setText(_translate("MainWindow", "Chrome Driver"))
         self.toolButton_2.setText(_translate("MainWindow", "选择Chrome Driver"))
-        self.label_2.setText(_translate("MainWindow", "Proxy Tool"))
-        self.toolButton.setText(_translate("MainWindow", "选择Proxy Tool"))
+        # self.label_2.setText(_translate("MainWindow", "Proxy Tool"))
+        self.label_2.addItem('选择代理')
+        self.label_2.addItem('911S5')
+        self.toolButton.setText("")
+        self.toolButton.setEnabled(False)
+        self.label_2.currentIndexChanged.connect(self.on_proxy_type_change)
+
         self.menu.setTitle(_translate("MainWindow", "工具"))
         self.actionNew_Task_2.setText(_translate("MainWindow", "新建任务"))
 
-        self.label3.setText('VMLogin Token')
-        self.toolButton_3.setPlaceholderText('请输入VMLogin Token')
+        # self.label3.setText('VMLogin Token')
+        self.label3.addItem('选择浏览器')
+        self.label3.addItem('VMLogin')
+        self.toolButton_3.setPlaceholderText('')
+        self.toolButton_3.setEnabled(False)
+        self.label3.currentIndexChanged.connect(self.on_browser_type_change)
+
         self.toolButton_3.textEdited[str].connect(self.on_vm_token_edit)
 
         self.actionNew_Task_2.triggered.connect(self.on_open_new_task)
@@ -275,7 +294,7 @@ class Ui_MainWindow(QMainWindow):
         self.load_task_list()
 
     def load_config(self):
-        sql = f'select * from sys_conf where sys_key in (\'proxy_path\', \'chrome_driver\', \'vm_token\');'
+        sql = f'select * from sys_conf where sys_key in (\'proxy_path\', \'chrome_driver\', \'vm_token\', \'proxy_type\', \'browser_type\');'
         rests = mysql_pool.query(sql)
         if rests is not None:
             for js in rests:
@@ -284,13 +303,59 @@ class Ui_MainWindow(QMainWindow):
                 value = dic.get('sys_value')
                 if key == 'proxy_path':
                     Config.Proxy_API = value
-                    self.toolButton.setText(value)
+                    # self.toolButton.setText(value)
                 elif key == 'chrome_driver':
                     Config.Chrome_Driver = value
                     self.toolButton_2.setText(value)
                 elif key == 'vm_token':
                     Config.VM_Token = value
-                    self.toolButton_3.setText(value)
+                    # self.toolButton_3.setText(value)
+                elif key == 'proxy_type':
+
+                    tp = Config.Proxy_Type_Default
+                    try:
+                        tp = int(value)
+                    except:
+                        tp = Config.Proxy_Type_Default
+
+                    if tp == Config.Proxy_Type_911S5:
+                        Config.Proxy_Type = Config.Proxy_Type_911S5
+                        self.label_2.setCurrentIndex(1)
+
+                        self.toolButton.setText("选择Proxy Tool")
+                        self.toolButton.setEnabled(True)
+
+                    else:
+                        Config.Proxy_Type = Config.Proxy_Type_Default
+                        self.label_2.setCurrentIndex(0)
+
+                        self.toolButton.setText("")
+                        self.toolButton.setEnabled(False)
+
+                elif key == 'browser_type':
+                    tp = Config.Browser_Type_Default
+                    try:
+                        tp = int(value)
+                    except:
+                        tp = Config.Browser_Type_Default
+
+                    if tp == Config.Browser_Type_VMLogin:
+                        Config.Browser_Type = Config.Browser_Type_VMLogin
+                        self.label3.setCurrentIndex(1)
+
+                        self.toolButton_3.setPlaceholderText('请输入VMLogin Token')
+                        self.toolButton_3.setEnabled(True)
+                    else:
+                        Config.Browser_Type = Config.Browser_Type_Default
+                        self.label3.setCurrentIndex(0)
+                        self.toolButton_3.setPlaceholderText('')
+                        self.toolButton_3.setEnabled(False)
+
+        if Config.Browser_Type == Config.Browser_Type_VMLogin:
+            self.toolButton_3.setText(Config.VM_Token)
+
+        if Config.Proxy_Type == Config.Proxy_Type_911S5:
+            self.toolButton.setText(Config.Proxy_API)
 
     def load_task_list(self):
 
@@ -303,6 +368,40 @@ class Ui_MainWindow(QMainWindow):
         if task_arr is not None:
             for task in task_arr:
                 self.display_task(task)
+
+    def on_browser_type_change(self):
+        tp = self.label3.currentIndex()
+        if tp == 0:
+            Config.Browser_Type = Config.Browser_Type_Default
+            self.toolButton_3.setPlaceholderText('')
+            self.toolButton_3.setEnabled(False)
+        elif tp == 1:
+            Config.Browser_Type = Config.Browser_Type_VMLogin
+            self.toolButton_3.setPlaceholderText('请输入VMLogin Token')
+            self.toolButton_3.setEnabled(True)
+
+            if Config.VM_Token is not None and len(Config.VM_Token) > 0:
+                self.toolButton_3.setText(Config.VM_Token)
+
+        self.on_save_sys_conf('browser_type', f'{tp}', '浏览器类型')
+
+    def on_proxy_type_change(self):
+        tp = self.label_2.currentIndex()
+        if tp == 0:
+            Config.Proxy_Type = Config.Proxy_Type_Default
+            self.toolButton.setText("")
+            self.toolButton.setEnabled(False)
+
+        elif tp == 1:
+            Config.Proxy_Type = Config.Proxy_Type_911S5
+            self.toolButton.setEnabled(True)
+
+            if Config.Proxy_API is not None and len(Config.Proxy_API) > 0:
+                self.toolButton.setText(Config.Proxy_API)
+            else:
+                self.toolButton.setText("选择Proxy Tool")
+
+        self.on_save_sys_conf('proxy_type', f'{tp}', '代理类型')
 
     def on_open_new_task(self):
         print("点击创建任务")
@@ -326,7 +425,7 @@ class Ui_MainWindow(QMainWindow):
             self.load_task_list()
 
     def on_save_sys_conf(self, key, value, comment):
-        if key is  None or value is None:
+        if key is None or value is None:
             return
         key = database.Database.escape_string(key)
         value = database.Database.escape_string(value)
@@ -355,7 +454,6 @@ class Ui_MainWindow(QMainWindow):
         Config.Proxy_API = fileName
         self.on_save_sys_conf('proxy_path', fileName, '911代理路径')
 
-
     def open_proxy_file(self):
         fileName, fileType = QtWidgets.QFileDialog.getOpenFileName(self.centralwidget, "选取文件", os.getcwd(),
                                                                    "All Files(*);;Text Files(*.txt)")
@@ -369,7 +467,8 @@ class Ui_MainWindow(QMainWindow):
     def on_export_task_file(self, js_str):
         if js_str is None:
             return
-        fileName, fileType = QtWidgets.QFileDialog.getSaveFileName(self.centralwidget, "选取文件", os.getcwd(), "All Files(*);;Text Files(*.txt)")
+        fileName, fileType = QtWidgets.QFileDialog.getSaveFileName(self.centralwidget, "选取文件", os.getcwd(),
+                                                                   "All Files(*);;Text Files(*.txt)")
         if len(fileName) == 0:
             return
 

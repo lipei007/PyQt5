@@ -247,14 +247,17 @@ class TaskWorker(QRunnable):
     # 释放端口并退出浏览器
     def release_port_and_quit(self, profile_id, proxy_exe, port):
         driver = self.driver
-        # 释放代理
-        # free_port(exe_path=proxy_exe, port=port)
-        # VMLogin.releaseProfileBrowser(profile_id)
 
-        # 退出
-        if driver is not None:
-            driver.quit()
+        if Config.Browser_Type == Config.Browser_Type_VMLogin:
+            # 释放代理
+            free_port(exe_path=proxy_exe, port=port)
+            VMLogin.releaseProfileBrowser(profile_id)
+        else:
+            # 退出
+            if driver is not None:
+                driver.quit()
             # driver.service.stop()
+        self.driver = None
 
     def start_browser(self, times, proxy_exe, token, profile_id, country, state, city, platform, langHdr,
                       accept_language, host,
@@ -263,19 +266,22 @@ class TaskWorker(QRunnable):
         result = 0
         driver = None
         try:
-            # # 修改代理
-            # change_proxy(exe_path=proxy_exe, country=country, state=state, city=city, port=port)
-            # # 随机VMLogin配置文件
-            # resp = VMLogin.randomEditProfile(token=token, profile_id=profile_id, platform=platform, langHdr=langHdr,
-            #                                  accept_language=accept_language, timeZone=None, proxyhost=host, port=port)
-            # # 获取配置文件调试地址
-            # debug_address = VMLogin.getDebugAddress(profile_id=profile_id)
-            #
+            # 修改代理
+            if Config.Proxy_Type == Config.Proxy_Type_911S5:  # 911S5
+                change_proxy(exe_path=proxy_exe, country=country, state=state, city=city, port=port)
+
             # 设置配置
             chrome_options = Options()
-            # chrome_options.add_experimental_option("debuggerAddress", debug_address)
-            chrome_driver = Config.Chrome_Driver
+            if Config.Browser_Type == Config.Browser_Type_VMLogin:  # VMLogin
+                # 随机VMLogin配置文件
+                resp = VMLogin.randomEditProfile(token=token, profile_id=profile_id, platform=platform, langHdr=langHdr,
+                                             accept_language=accept_language, timeZone=None, proxyhost=host, port=port)
+                # 获取配置文件调试地址
+                debug_address = VMLogin.getDebugAddress(profile_id=profile_id)
+                chrome_options.add_experimental_option("debuggerAddress", debug_address)
+
             # 开启浏览器
+            chrome_driver = Config.Chrome_Driver
             driver = webdriver.Chrome(chrome_driver, options=chrome_options)
 
             self.log("准备打开网页")
