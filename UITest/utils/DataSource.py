@@ -1,4 +1,4 @@
-from database.Database import DataBasePool, escape_string
+from UITest.database.Database import DataBasePool, escape_string
 
 # 数据库连接池
 mysql_pool = DataBasePool(host='localhost', port=3306, user='root', password='abc123456', db='load_emu')

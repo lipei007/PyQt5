@@ -1,12 +1,6 @@
 import time
 
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import WebDriverException
-
-import VMLogin
-from NineOneOne import change_proxy, free_port
-from VMLogin import getProfileInfos, editProfile, getDebugAddress
 from random import randint, choice
 import random
 
@@ -51,41 +45,3 @@ def random64Id():
     for i in range(0, 64):
         s = s + choice(strings)
     return s
-
-
-def startBrowser(debug_address, url):
-    # 设置配置
-    chrome_options = Options()
-    chrome_options.add_experimental_option("debuggerAddress", debug_address)
-    chrome_driver = r"E:\ChromeDriver\90\chromedriver.exe"
-
-    try:
-        driver = webdriver.Chrome(chrome_driver, options=chrome_options)
-        driver.get(url)
-        return driver
-    except:
-        raise Exception("启动失败")
-    return None
-
-
-def doTry(proxy_exe, token, profile_id, country, state, city, platform, langHdr, accept_language, host, port, url,
-          callback):
-    # 修改代理
-    change_proxy(exe_path=proxy_exe, country=country, state=state, city=city, port=port)
-    resp = VMLogin.randomEditProfile(token=token, profile_id=profile_id, platform=platform, langHdr=langHdr,
-                                     accept_language=accept_language, timeZone=None, proxyhost=host, port=port)
-    debug_address = getDebugAddress(profile_id=profile_id)
-    driver = None
-    try:
-        # 开启浏览器
-        driver = startBrowser(debug_address=debug_address, url=url)
-        # 外部调用
-        callback(driver)
-    except WebDriverException as e:
-        print("启动浏览器发生异常")
-        callback(None)
-    finally:
-        # 释放代理
-        free_port(exe_path=proxy_exe, port=port)
-        if driver is not None:
-            driver.quit()

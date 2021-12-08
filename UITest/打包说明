@@ -1,0 +1,22 @@
+### 安装
+```
+    pip install pyinstaller
+```
+### 打包
+* 打包执行带命令行窗口的EXE
+ pyinstaller -F -c -i assets/APPIcon.ico main.py
+
+* 打包执行不带命令行窗口的EXE
+ pyinstaller -F -w -i assets/APPIcon.ico main.py
+
+
+### 参数说明
+* -F 指只生成一个exe文件，不生成其他dll文件
+* -w 不弹出命令行窗口
+* -i 设定程序图标 ，其后面的ico文件就是程序图标
+* main.py 就是要打包的程序
+* -c 生成的exe文件打开方式为控制台打开。
+
+### 注意
+* 如果第一次打包，建议使用带命令行窗口的打包方式，这样程序运行的时候，如果发生错误，窗口里面是能看到的；
+* 如果程序运行发生错误：`ModuleNotFoundError: No module named 'xxx'`，这时候是因为pyinstaller在打包的时候，main.py所在的目录下还有一些平级的py文件，这时候将除main.py的文件移动到另外一个包便可解决此问题。
