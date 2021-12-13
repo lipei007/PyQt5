@@ -29,6 +29,8 @@ from UITest.UI.TaskWorker import TaskWorker, TaskWorkerDispatcher
 from UITest.UI import Config
 from UITest import database
 from UITest.database.Database import DataBasePool
+from UITest.Usr import User
+import time
 
 
 def alert_msg(parent, msg):
@@ -536,6 +538,11 @@ class Ui_MainWindow(QMainWindow):
 
     def on_click_start_task(self):
         # print(f"开启任务 {self.sender().task}")
+        current_timestamp = time.time()
+        if User.User_Expire < current_timestamp:
+            alert_msg(self, '账号已过期')
+            return
+
         tid: int = self.sender().task
         ui_wrap: TaskCellWrap = self.ui_wrap_infos[tid]
         task: TaskEntity = self.task_infos[tid]

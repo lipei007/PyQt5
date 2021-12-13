@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 from UITest.UI import TaskWindow, Config
 from UITest.encrypt import Coder
 from UITest.utils.Tool import get_mac_address
+from UITest.Usr import User
 
 
 ui_main = None
@@ -78,7 +79,7 @@ class LoginWindow(QMainWindow):
 
     def on_login(self):
 
-        url = 'http://127.0.0.1:5000/login'
+        url = 'https://www.yimao1.com/api/login'
         import requests
 
         account = self.lineEdit.text()
@@ -105,8 +106,23 @@ class LoginWindow(QMainWindow):
             if res.status_code == 200:
                 js = res.json()
                 code = js.get('code', None)
+
                 if code is not None and code == 0:
                     # self.alert_msg("登陆成功")
+
+                    data = js.get('data', None)
+                    if data is None:
+                        QMessageBox.about(self, '温馨提示', "未知错误")
+                        return
+                    expire_date = data.get('expire_date', 0)
+                    if expire_date <= 0:
+                        QMessageBox.about(self, '温馨提示', "账号已过期")
+                        return
+
+                    User.User_Account = account
+                    User.User_Mac = identifier
+                    User.User_Expire = expire_date
+
                     self.show_main()
                 else:
                     msg = js.get("msg", "未知错误")

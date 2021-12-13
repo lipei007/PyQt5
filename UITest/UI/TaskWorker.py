@@ -19,6 +19,7 @@ from UITest.database.Database import DataBasePool
 from UITest.utils import VMLogin
 from UITest.utils.NineOneOne import change_proxy, free_port
 from UITest.UI import Config
+from UITest.Usr import User
 
 from PyQt5.QtCore import QRunnable, pyqtSlot, QObject, pyqtSignal, QThreadPool, QTimer
 
@@ -74,6 +75,13 @@ class TaskWorker(QRunnable):
     def run(self) -> None:
         self.is_running = True
         if self.is_cancel:
+            self.is_cancel = True
+            self.finished()
+            return
+
+        current_timestamp = time.time()
+        if User.User_Expire < current_timestamp:
+            self.log(f"任务 {self.tid} 取消， 账号{User.User_Account}已过期")
             self.is_cancel = True
             self.finished()
             return
